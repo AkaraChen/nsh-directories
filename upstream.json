@@ -1,0 +1,48 @@
+{
+  "repository": "https://codeberg.org/dirs/directories-rs",
+  "crate": "directories",
+  "version": "6.0.0",
+  "commit": "1f285d9114176e7be8b85b354e3bfde7c3e6356e",
+  "dirsSysVersion": "0.5.0",
+  "apiSurface": {
+    "BaseDirs": [
+      "new",
+      "home_dir",
+      "cache_dir",
+      "config_dir",
+      "config_local_dir",
+      "data_dir",
+      "data_local_dir",
+      "executable_dir",
+      "preference_dir",
+      "runtime_dir",
+      "state_dir"
+    ],
+    "UserDirs": [
+      "new",
+      "home_dir",
+      "audio_dir",
+      "desktop_dir",
+      "document_dir",
+      "download_dir",
+      "font_dir",
+      "picture_dir",
+      "public_dir",
+      "template_dir",
+      "video_dir"
+    ],
+    "ProjectDirs": [
+      "from_path",
+      "from",
+      "project_path",
+      "cache_dir",
+      "config_dir",
+      "config_local_dir",
+      "data_dir",
+      "data_local_dir",
+      "preference_dir",
+      "runtime_dir",
+      "state_dir"
+    ]
+  }
+}

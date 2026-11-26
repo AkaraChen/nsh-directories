@@ -1,0 +1,26 @@
+nsh-directories
+Copyright (c) 2026 AkaraChen.
+Dual-licensed under MIT OR Apache-2.0 (see LICENSE-MIT and LICENSE-APACHE).
+
+This crate wraps `directories` (https://codeberg.org/dirs/directories-rs),
+version 6.0.0, commit 1f285d9114176e7be8b85b354e3bfde7c3e6356e
+(`dirs-sys` 0.5.0), licensed under MIT OR Apache-2.0 by the directories-rs
+contributors:
+
+  Copyright (c) 2018 directories-rs contributors
+
+Intentional platform divergences from upstream `directories`:
+
+1. Android (`target_os = "android"`):
+   Upstream routes Android through `lin.rs` (XDG / `$HOME`), which yields
+   `None` or unusable paths inside Android APK sandboxes. `nsh-directories`
+   instead queries `android.content.Context` (`getDataDir`, `getFilesDir`,
+   `getCacheDir`, `getNoBackupFilesDir`) via `ndk-context` + `jni`, and
+   returns `None` for `UserDirs::new()` (Scoped Storage).
+
+2. iOS (`target_os = "ios"`):
+   `BaseDirs` and `ProjectDirs` delegate to upstream `mac.rs`. `UserDirs`
+   is overridden to expose only `home_dir` and `document_dir`
+   (`$HOME/Documents`), returning `None` for desktop-only folders such as
+   `Desktop`, `Music`, `Movies`, `Downloads`, `Pictures`, `Public`, and
+   `Library/Fonts`.

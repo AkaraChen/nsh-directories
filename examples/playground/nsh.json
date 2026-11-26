@@ -1,0 +1,9 @@
+{
+  "name": "nsh-directories-playground",
+  "id": "dev.akarachen.nshdirectories.playground",
+  "version": "0.1.0",
+  "build": 1,
+  "dependencies": {
+    "nsh-directories": { "path": "../.." }
+  }
+}

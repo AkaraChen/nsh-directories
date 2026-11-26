@@ -1,0 +1,34 @@
+[package]
+name = "nsh-directories"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "directories-rs for Native Shell: platform-standard config, cache, data and user directories for Rust and TSX"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/AkaraChen/nsh-directories"
+readme = "README.md"
+keywords = ["nshm", "nsh", "directories", "xdg", "basedir"]
+categories = ["filesystem", "os", "gui"]
+include = [
+    "/src/**",
+    "/upstream.json",
+    "/nsh.json",
+    "/README.md",
+    "/LICENSE-APACHE",
+    "/LICENSE-MIT",
+    "/NOTICE",
+]
+
+[features]
+default = ["nsh"]
+# Native Shell module binding (`#[native_module("nsh-directories")]`).
+# Disable default features to use `nsh-directories` as a pure Rust crate.
+nsh = ["dep:nsh-core"]
+
+[dependencies]
+directories = "6.0.0"
+nsh-core = { version = "0.7", optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+ndk-context = "0.1.1"

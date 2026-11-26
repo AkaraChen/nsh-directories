@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  NSH_ARCHIVE: https://github.com/longbridge/nsh/releases/download/v0.7.1/nsh-linux-x86_64.tar.gz
+
+jobs:
+  lint:
+    name: fmt + clippy
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown, aarch64-linux-android, x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo clippy --all-targets --no-default-features -- -D warnings
+      - run: cargo clippy --all-targets --features nsh-core/declarations -- -D warnings
+      - run: cargo clippy --lib --target wasm32-unknown-unknown -- -D warnings
+      - run: cargo clippy --lib --target wasm32-unknown-unknown --no-default-features -- -D warnings
+      - run: cargo clippy --lib --target aarch64-linux-android -- -D warnings
+      - run: cargo clippy --lib --target x86_64-linux-android -- -D warnings
+
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo test (default features, parity + capability tests)
+        run: cargo test --verbose
+      - name: cargo test (with nsh-core/declarations)
+        run: cargo test --features nsh-core/declarations --verbose
+      - name: cargo test (pure Rust, no default features)
+        run: cargo test --no-default-features --verbose
+
+  mobile:
+    name: mobile (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, target: aarch64-linux-android, run_host_tests: true }
+          - { os: ubuntu-24.04, target: x86_64-linux-android, run_host_tests: false }
+          - { os: macos-15, target: aarch64-apple-ios, run_host_tests: false }
+          - { os: macos-15, target: aarch64-apple-ios-sim, run_host_tests: false }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: host unit tests for Android and iOS mapping pure functions
+        if: matrix.run_host_tests
+        run: |
+          cargo test --lib sys::android -- --nocapture
+          cargo test --lib sys::ios -- --nocapture
+      - name: build library for ${{ matrix.target }}
+        run: cargo build --lib --target ${{ matrix.target }}
+      - name: build pure Rust library for ${{ matrix.target }}
+        run: cargo build --lib --target ${{ matrix.target }} --no-default-features
+      - name: clippy for ${{ matrix.target }}
+        run: cargo clippy --lib --target ${{ matrix.target }} -- -D warnings
+
+  wasm:
+    name: wasm32
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm32
+      - name: build wasm32 with nsh feature
+        run: cargo build --lib --target wasm32-unknown-unknown
+      - name: build wasm32 pure Rust (no default features)
+        run: cargo build --lib --target wasm32-unknown-unknown --no-default-features
+
+  nsh:
+    name: nsh check + nsh test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            examples/playground/target
+            examples/denied-cap/target
+          key: nsh-0.7.1-${{ hashFiles('Cargo.toml', 'Cargo.lock', 'nsh.json', 'src/**') }}
+          restore-keys: nsh-0.7.1-
+      - name: GTK 4 (Linux host dependency)
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev
+      - name: Install nsh v0.7.1
+        run: |
+          mkdir -p "$HOME/nsh-dist"
+          curl -fsSL "$NSH_ARCHIVE" | tar -xz -C "$HOME/nsh-dist"
+          echo "$HOME/nsh-dist/nsh/bin" >> "$GITHUB_PATH"
+      - run: nsh --version
+      - name: playground nsh check
+        working-directory: examples/playground
+        run: nsh check
+      - name: playground nsh test
+        working-directory: examples/playground
+        run: nsh test
+      - name: denied-cap nsh check
+        working-directory: examples/denied-cap
+        run: nsh check
+      - name: denied-cap nsh test
+        working-directory: examples/denied-cap
+        run: nsh test
+
+  upstream-sync:
+    name: upstream sync check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/sync-upstream.mjs --check

@@ -1,0 +1,10 @@
+{
+  "name": "nsh-directories-denied-cap",
+  "id": "dev.akarachen.nshdirectories.deniedcap",
+  "version": "0.1.0",
+  "build": 1,
+  "capabilities": {},
+  "dependencies": {
+    "nsh-directories": { "path": "../.." }
+  }
+}

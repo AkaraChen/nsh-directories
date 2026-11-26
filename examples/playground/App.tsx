@@ -1,4 +1,5 @@
 import { mount, platform, Scroll, Text, View } from "nsh";
+import os from "os";
 import { Directories } from "nsh-directories";
 
 type Capture<T> =
@@ -26,8 +27,9 @@ export function Playground() {
   const userCapture = capture(() => Directories.userDirs());
   const project = Directories.projectDirs("com", "Example Corp", "Playground");
   const projectDirsFromPath = Directories.projectDirsFromPath("custom-app");
+  const runtimePlatform = platform.os === "web" || os.arch() === "wasm32" ? "web" : os.platform();
   const snapshot = {
-    platform: platform.os,
+    platform: runtimePlatform,
     platformVersion: platform.version,
     available,
     info,

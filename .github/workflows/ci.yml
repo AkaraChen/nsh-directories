@@ -188,13 +188,13 @@ jobs:
         working-directory: examples/playground
         run: |
           set -o pipefail
-          nsh test e2e.test.tsx --target web | tee "$RUNNER_TEMP/web-playground.log"
+          nsh test e2e.test.tsx --target web 2>&1 | tee "$RUNNER_TEMP/web-playground.log"
           grep -q '\[e2e\] platform=web ' "$RUNNER_TEMP/web-playground.log"
       - name: denied-cap web E2E
         working-directory: examples/denied-cap
         run: |
           set -o pipefail
-          nsh test e2e.test.tsx --target web | tee "$RUNNER_TEMP/web-denied-cap.log"
+          nsh test e2e.test.tsx --target web 2>&1 | tee "$RUNNER_TEMP/web-denied-cap.log"
           grep -q '\[e2e\] platform=web ' "$RUNNER_TEMP/web-denied-cap.log"
 
   ios-e2e:
@@ -263,13 +263,13 @@ jobs:
         working-directory: examples/playground
         run: |
           set -o pipefail
-          nsh test e2e.test.tsx --target ios --device "$IOS_SIM_UDID" | tee "$RUNNER_TEMP/ios-playground.log"
+          nsh test e2e.test.tsx --target ios --device "$IOS_SIM_UDID" 2>&1 | tee "$RUNNER_TEMP/ios-playground.log"
           grep -q '\[e2e\] platform=ios ' "$RUNNER_TEMP/ios-playground.log"
       - name: denied-cap iOS Simulator E2E
         working-directory: examples/denied-cap
         run: |
           set -o pipefail
-          nsh test e2e.test.tsx --target ios --device "$IOS_SIM_UDID" | tee "$RUNNER_TEMP/ios-denied-cap.log"
+          nsh test e2e.test.tsx --target ios --device "$IOS_SIM_UDID" 2>&1 | tee "$RUNNER_TEMP/ios-denied-cap.log"
           grep -q '\[e2e\] platform=ios ' "$RUNNER_TEMP/ios-denied-cap.log"
 
   android-e2e:
@@ -332,17 +332,4 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 300
           emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
-          script: |
-            bash -euo pipefail <<'EOF'
-            adb devices -l
-            (
-              cd examples/playground
-              nsh test e2e.test.tsx --target android | tee "$RUNNER_TEMP/android-playground.log"
-              grep -q '\[e2e\] platform=android ' "$RUNNER_TEMP/android-playground.log"
-            )
-            (
-              cd examples/denied-cap
-              nsh test e2e.test.tsx --target android | tee "$RUNNER_TEMP/android-denied-cap.log"
-              grep -q '\[e2e\] platform=android ' "$RUNNER_TEMP/android-denied-cap.log"
-            )
-            EOF
+          script: bash scripts/ci-android-e2e.sh

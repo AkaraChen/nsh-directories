@@ -1,4 +1,5 @@
 import { mount, platform, Text, View } from "nsh";
+import os from "os";
 import { Directories } from "nsh-directories";
 
 interface DeniedCapture {
@@ -44,8 +45,9 @@ export function DeniedCapApp() {
   const base = Directories.baseDirs();
   const project = Directories.projectDirs("com", "Example Corp", "Denied Cap");
   const fromPath = Directories.projectDirsFromPath("custom-app");
+  const runtimePlatform = platform.os === "web" || os.arch() === "wasm32" ? "web" : os.platform();
   const snapshot = {
-    platform: platform.os,
+    platform: runtimePlatform,
     platformVersion: platform.version,
     available: Directories.available(),
     info: Directories.info(),

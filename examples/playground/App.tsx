@@ -1,5 +1,4 @@
-import { mount, Scroll, Text, View } from "nsh";
-import { platform } from "nsh/device";
+import { mount, platform, Scroll, Text, View } from "nsh";
 import { Directories } from "nsh-directories";
 
 type Capture<T> =

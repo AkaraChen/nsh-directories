@@ -1,5 +1,4 @@
-import { mount, Text, View } from "nsh";
-import { platform } from "nsh/device";
+import { mount, platform, Text, View } from "nsh";
 import { Directories } from "nsh-directories";
 
 interface DeniedCapture {

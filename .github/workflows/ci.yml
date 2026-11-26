@@ -333,7 +333,7 @@ jobs:
           emulator-boot-timeout: 300
           emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           script: |
-            set -euo pipefail
+            bash -euo pipefail <<'EOF'
             adb devices -l
             (
               cd examples/playground
@@ -345,3 +345,4 @@ jobs:
               nsh test e2e.test.tsx --target android | tee "$RUNNER_TEMP/android-denied-cap.log"
               grep -q '\[e2e\] platform=android ' "$RUNNER_TEMP/android-denied-cap.log"
             )
+            EOF

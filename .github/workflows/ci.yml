@@ -12,7 +12,12 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  NSH_VERSION: v0.7.1
   NSH_ARCHIVE: https://github.com/longbridge/nsh/releases/download/v0.7.1/nsh-linux-x86_64.tar.gz
+  NSH_WEB_ARCHIVE: https://github.com/longbridge/nsh/releases/download/v0.7.1/nsh-web.tar.gz
+  NSH_ANDROID_ARCHIVE: https://github.com/longbridge/nsh/releases/download/v0.7.1/nsh-android.tar.gz
+  NSH_MACOS_ARM64_ARCHIVE: https://github.com/longbridge/nsh/releases/download/v0.7.1/nsh-macos-arm64.tar.gz
+  NSH_IOS_MACOS_ARM64_ARCHIVE: https://github.com/longbridge/nsh/releases/download/v0.7.1/nsh-ios-macos-arm64.tar.gz
 
 jobs:
   lint:
@@ -145,3 +150,198 @@ jobs:
         with:
           node-version: 24
       - run: node scripts/sync-upstream.mjs --check
+
+  web-e2e:
+    name: web E2E (wasm32 + Chrome)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target-nsh-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target-nsh-web
+          key: nsh-web-e2e-v0.7.1-${{ hashFiles('Cargo.toml', 'Cargo.lock', 'nsh.json', 'src/**') }}
+          restore-keys: nsh-web-e2e-v0.7.1-
+      - name: Install clang, llvm, and verify Chrome
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang llvm libclang-dev
+          llvm-ar --version
+          google-chrome --version || chromium --version || chromium-browser --version
+      - name: Install nsh v0.7.1 + web component
+        run: |
+          mkdir -p "$HOME/nsh-dist"
+          curl -fsSL "$NSH_ARCHIVE" | tar -xz -C "$HOME/nsh-dist"
+          curl -fsSL "$NSH_WEB_ARCHIVE" | tar -xz -C "$HOME/nsh-dist"
+          echo "$HOME/nsh-dist/nsh/bin" >> "$GITHUB_PATH"
+      - run: nsh --version
+      - name: playground web E2E
+        working-directory: examples/playground
+        run: |
+          set -o pipefail
+          nsh test e2e.test.tsx --target web | tee "$RUNNER_TEMP/web-playground.log"
+          grep -q '\[e2e\] platform=web ' "$RUNNER_TEMP/web-playground.log"
+      - name: denied-cap web E2E
+        working-directory: examples/denied-cap
+        run: |
+          set -o pipefail
+          nsh test e2e.test.tsx --target web | tee "$RUNNER_TEMP/web-denied-cap.log"
+          grep -q '\[e2e\] platform=web ' "$RUNNER_TEMP/web-denied-cap.log"
+
+  ios-e2e:
+    name: iOS E2E (Simulator)
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target-nsh-ios
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios-sim
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target-nsh-ios
+          key: nsh-ios-e2e-v0.7.1-${{ hashFiles('Cargo.toml', 'Cargo.lock', 'nsh.json', 'src/**') }}
+          restore-keys: nsh-ios-e2e-v0.7.1-
+      - name: Verify Xcode & boot iOS Simulator
+        run: |
+          xcode-select -p
+          xcodebuild -version
+          xcrun simctl list runtimes
+          python3 - <<'PY'
+          import json, os, subprocess, sys
+
+          data = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "--json"], text=True))
+          devices = []
+          for runtime, items in data.get("devices", {}).items():
+              if "SimRuntime.iOS" not in runtime:
+                  continue
+              for d in items:
+                  if d.get("isAvailable"):
+                      devices.append((runtime, d))
+
+          booted = [x for x in devices if x[1].get("state") == "Booted"]
+          iphones = [x for x in reversed(devices) if x[1].get("name", "").startswith("iPhone")]
+          pros = [x for x in iphones if "Pro" in x[1].get("name", "")]
+          chosen = (booted or pros or iphones or [None])[0]
+          if not chosen:
+              sys.stderr.write("No available iOS iPhone simulator found\n")
+              sys.exit(1)
+
+          runtime, dev = chosen
+          udid = dev["udid"]
+          print(f"Selected iOS simulator: {dev['name']} ({udid}) [{runtime}] state={dev['state']}")
+          if dev.get("state") != "Booted":
+              subprocess.check_call(["xcrun", "simctl", "boot", udid])
+          subprocess.check_call(["xcrun", "simctl", "bootstatus", udid, "-b"])
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as fh:
+              fh.write(f"IOS_SIM_UDID={udid}\n")
+          PY
+      - name: Install nsh v0.7.1 + iOS component
+        run: |
+          mkdir -p "$HOME/nsh-dist"
+          curl -fsSL "$NSH_MACOS_ARM64_ARCHIVE" | tar -xz -C "$HOME/nsh-dist"
+          curl -fsSL "$NSH_IOS_MACOS_ARM64_ARCHIVE" | tar -xz -C "$HOME/nsh-dist"
+          echo "$HOME/nsh-dist/nsh/bin" >> "$GITHUB_PATH"
+      - run: nsh --version
+      - name: playground iOS Simulator E2E
+        working-directory: examples/playground
+        run: |
+          set -o pipefail
+          nsh test e2e.test.tsx --target ios --device "$IOS_SIM_UDID" | tee "$RUNNER_TEMP/ios-playground.log"
+          grep -q '\[e2e\] platform=ios ' "$RUNNER_TEMP/ios-playground.log"
+      - name: denied-cap iOS Simulator E2E
+        working-directory: examples/denied-cap
+        run: |
+          set -o pipefail
+          nsh test e2e.test.tsx --target ios --device "$IOS_SIM_UDID" | tee "$RUNNER_TEMP/ios-denied-cap.log"
+          grep -q '\[e2e\] platform=ios ' "$RUNNER_TEMP/ios-denied-cap.log"
+
+  android-e2e:
+    name: Android E2E (API 35 Emulator)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target-nsh-android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target-nsh-android
+          key: nsh-android-e2e-v0.7.1-${{ hashFiles('Cargo.toml', 'Cargo.lock', 'nsh.json', 'src/**') }}
+          restore-keys: nsh-android-e2e-v0.7.1-
+      - name: Install host build deps & enable KVM
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang libclang-dev
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -la /dev/kvm
+          java -version
+      - name: Ensure Android SDK & NDK components
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.1"
+          if [ ! -d "${ANDROID_NDK_HOME:-}" ] && [ ! -d "$ANDROID_HOME/ndk" ]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018"
+          fi
+          ls -la "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools" "$ANDROID_HOME/ndk"
+      - name: Install nsh v0.7.1 + Android component
+        run: |
+          mkdir -p "$HOME/nsh-dist"
+          curl -fsSL "$NSH_ARCHIVE" | tar -xz -C "$HOME/nsh-dist"
+          curl -fsSL "$NSH_ANDROID_ARCHIVE" | tar -xz -C "$HOME/nsh-dist"
+          echo "$HOME/nsh-dist/nsh/bin" >> "$GITHUB_PATH"
+      - run: |
+          nsh --version
+          ls -la "$HOME/nsh-dist/nsh/runtime/android/dev"
+      - name: Run Android Emulator E2E tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          disable-animations: true
+          emulator-boot-timeout: 300
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: |
+            set -euo pipefail
+            adb devices -l
+            (
+              cd examples/playground
+              nsh test e2e.test.tsx --target android | tee "$RUNNER_TEMP/android-playground.log"
+              grep -q '\[e2e\] platform=android ' "$RUNNER_TEMP/android-playground.log"
+            )
+            (
+              cd examples/denied-cap
+              nsh test e2e.test.tsx --target android | tee "$RUNNER_TEMP/android-denied-cap.log"
+              grep -q '\[e2e\] platform=android ' "$RUNNER_TEMP/android-denied-cap.log"
+            )

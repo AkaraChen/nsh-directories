@@ -1,20 +1,61 @@
 import { mount, Text, View } from "nsh";
+import { platform } from "nsh/device";
 import { Directories } from "nsh-directories";
 
-function captureCode(fn: () => unknown): string {
+interface DeniedCapture {
+  allowed: boolean;
+  code: string | null;
+  permission: string | null;
+  resource: string | null;
+  message: string | null;
+}
+
+function captureDenied(fn: () => unknown): DeniedCapture {
   try {
     fn();
-    return "ALLOWED";
+    return {
+      allowed: true,
+      code: null,
+      permission: null,
+      resource: null,
+      message: null,
+    };
   } catch (error) {
-    return (error as { code?: string }).code ?? "ERROR";
+    const err = error as {
+      code?: unknown;
+      permission?: unknown;
+      resource?: unknown;
+      message?: unknown;
+    };
+    return {
+      allowed: false,
+      code: typeof err?.code === "string" ? err.code : "ERROR",
+      permission: typeof err?.permission === "string" ? err.permission : null,
+      resource: typeof err?.resource === "string" ? err.resource : null,
+      message: typeof err?.message === "string" ? err.message : String(error),
+    };
   }
 }
 
 export function DeniedCapApp() {
-  const homeStatus = captureCode(() => Directories.homeDir());
-  const userStatus = captureCode(() => Directories.userDirs());
+  const homeCapture = captureDenied(() => Directories.homeDir());
+  const userCapture = captureDenied(() => Directories.userDirs());
+  const homeStatus = homeCapture.allowed ? "ALLOWED" : (homeCapture.code ?? "ERROR");
+  const userStatus = userCapture.allowed ? "ALLOWED" : (userCapture.code ?? "ERROR");
   const base = Directories.baseDirs();
   const project = Directories.projectDirs("com", "Example Corp", "Denied Cap");
+  const fromPath = Directories.projectDirsFromPath("custom-app");
+  const snapshot = {
+    platform: platform.os,
+    platformVersion: platform.version,
+    available: Directories.available(),
+    info: Directories.info(),
+    homeDir: homeCapture,
+    userDirs: userCapture,
+    baseDirs: base,
+    projectDirs: project,
+    projectDirsFromPath: fromPath,
+  };
 
   return (
     <View class="flex-1 gap-2 bg-background p-4">
@@ -23,6 +64,9 @@ export function DeniedCapApp() {
       <Text class="text-sm text-foreground">{`userDirs: ${userStatus}`}</Text>
       <Text class="text-sm text-foreground">{`baseDirs.homeDir: ${String(base?.homeDir)}`}</Text>
       <Text class="text-xs text-muted-foreground">{`projectDirs.configDir: ${project?.configDir ?? "null"}`}</Text>
+      <Text testID="e2e-snapshot" class="text-xs text-muted-foreground">
+        {`E2E_SNAPSHOT:${JSON.stringify(snapshot)}`}
+      </Text>
     </View>
   );
 }

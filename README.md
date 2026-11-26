@@ -102,12 +102,12 @@ node scripts/sync-upstream.mjs --check-latest
 
 ## Verification Scope
 
-Automated CI checks cover formatting, Clippy (Linux + `wasm32`, with and without `nsh`), full field-by-field parity tests against `::directories` on Linux/macOS/Windows, Linux XDG env-override parity, host unit tests for Android and iOS mapping functions, cross-compilation checks (`wasm32`, Android, iOS), `nsh check` + `nsh test` across `examples/playground` and `examples/denied-cap`, and upstream sync verification.
+Automated CI checks cover formatting, Clippy (Linux + `wasm32`, Android, iOS, with and without `nsh`), full field-by-field parity tests against `::directories` on Linux/macOS/Windows, Linux XDG env-override parity, host unit tests for Android and iOS mapping functions, cross-compilation checks (`wasm32`, Android, iOS), headless `nsh test` + real-platform E2E tests (`nsh test --target web` in headless Chrome, `nsh test --target ios` in the Xcode iOS Simulator on `macos-15`, and `nsh test --target android` in an API 35 `x86_64` Android Emulator with KVM exercising `ndk-context` + JNI `Context.{getDataDir, getFilesDir, getCacheDir, getNoBackupFilesDir}`) across both `examples/playground` and `examples/denied-cap`, and upstream sync verification.
 
-The following items are **not** executed in automated CI and remain unverified at runtime on real target hardware:
-- Real Android device / emulator JNI execution (`Context.getFilesDir` etc. inside an APK)
-- Real iOS device / simulator / Mac Catalyst `$HOME` container execution
-- Real browser `wasm32` runtime execution via `nsh package --target web`
+The following items are **not** executed in automated CI and remain unverified at runtime:
+- Physical Android and iOS hardware devices
+- Mac Catalyst runtime (`--target catalyst`)
+- Published static site deployment via `nsh package --target web`
 - Real-device mobile/browser runtime performance
 
 ## License

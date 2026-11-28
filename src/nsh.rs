@@ -176,7 +176,7 @@ pub struct Directories;
 
 #[module]
 impl Directories {
-    /// Returns `true` when native standard directory lookup is supported on this platform (`false` on web/wasm).
+    /// Returns `true` when native standard directory lookup is supported on this platform (`false` on web/wasm and HarmonyOS).
     pub fn available() -> bool {
         crate::available()
     }

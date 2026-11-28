@@ -67,6 +67,7 @@ jobs:
           - { os: ubuntu-24.04, target: x86_64-linux-android, run_host_tests: false }
           - { os: macos-15, target: aarch64-apple-ios, run_host_tests: false }
           - { os: macos-15, target: aarch64-apple-ios-sim, run_host_tests: false }
+          - { os: ubuntu-24.04, target: aarch64-unknown-linux-ohos, run_host_tests: false }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

@@ -86,6 +86,7 @@ if available() {
 | **Windows** | Upstream `win.rs` (Known Folders) | Upstream `win.rs` (Known Folders) | Upstream `win.rs` (`Foo Corp\Bar App\{cache,config,data}`) | 100% parity with `directories = "6.0.0"`. |
 | **iOS** | Upstream `mac.rs` inside sandbox `$HOME` | **Overridden**: `home_dir` + `document_dir` (`$HOME/Documents`) only; all other 8 fields `None` | Upstream `mac.rs` inside sandbox `$HOME` | Intentional divergence: upstream `mac.rs` emits non-existent `$HOME/Desktop`, `$HOME/Music`, etc. on iOS. Note that `Library/Application Support` may need `mkdir({ recursive: true })` before first write, `home_dir` is the container root (do not write arbitrary business files there), and `Library/Preferences` is managed by `NSUserDefaults`. |
 | **Android** | **Overridden**: `ndk-context` + `jni` queries `Context.{getDataDir, getFilesDir, getCacheDir, getNoBackupFilesDir}` | **Overridden**: `None` | **Overridden**: joins reverse-DNS `project_path` onto `filesDir` / `cacheDir` / `noBackupFilesDir` | Intentional divergence: upstream routes Android to `lin.rs` (`$HOME`), which returns `None` or invalid paths inside APKs. Queries are cached in `OnceLock` once initialized and return `None` safely without panicking if `ndk-context` is not yet initialized (under `panic = "unwind"`). Scoped Storage prohibits direct POSIX writes to shared user directories, so `UserDirs::new()` returns `None`. |
+| **HarmonyOS / OpenHarmony (`target_env = "ohos"`, spike)** | `todo!()` | `todo!()` | `todo!()` | **Placeholder only.** OHOS reports `target_os = "linux"`, so it is routed away from upstream `lin.rs` (whose `$HOME`/XDG paths are meaningless in an app sandbox) to [`src/sys/ohos.rs`](src/sys/ohos.rs). The API compiles for `aarch64-unknown-linux-ohos` (e.g. under [`nsh-platform-harmonyos`](https://github.com/huacnlee/nsh-platform-harmonyos)), but every directory lookup **panics**; `available()` is `false` so apps can feature-detect. Capability checks in TSX still run first. A real implementation should read the ability context (`filesDir` / `cacheDir` / `tempDir`). |
 | **Web (`wasm32`)** | `None` / `null` | `None` / `null` (still checks `capabilities.homeDir` in TSX) | `None` / `null` | `available()` is `false`. Unlike `os.homedir()` (which throws `ERR_FEATURE_UNAVAILABLE_ON_PLATFORM` because its type is non-null `string`), `Directories` factories return `null` after capability checks pass. |
 
 ## Upstream Pinning & Sync
@@ -107,6 +108,7 @@ Automated CI checks cover formatting, Clippy (Linux + `wasm32`, Android, iOS, wi
 The following items are **not** executed in automated CI and remain unverified at runtime:
 - Physical Android and iOS hardware devices
 - Mac Catalyst runtime (`--target catalyst`)
+- HarmonyOS / OpenHarmony (only `cargo check --target aarch64-unknown-linux-ohos`; lookups are `todo!()`)
 - Published static site deployment via `nsh package --target web`
 - Real-device mobile/browser runtime performance
 

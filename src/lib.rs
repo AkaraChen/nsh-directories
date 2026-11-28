@@ -45,9 +45,10 @@ pub const UPSTREAM_VERSION: &str = provenance::UPSTREAM_VERSION;
 pub const UPSTREAM_COMMIT: &str = provenance::UPSTREAM_COMMIT;
 
 /// Returns `true` when the target platform supports native standard
-/// directories (`false` on `wasm32`, `true` otherwise).
+/// directories (`false` on `wasm32` and on HarmonyOS/OpenHarmony, whose
+/// lookups are still `todo!()`; `true` otherwise).
 pub const fn available() -> bool {
-    !cfg!(target_arch = "wasm32")
+    !cfg!(any(target_arch = "wasm32", target_env = "ohos"))
 }
 
 /// `BaseDirs` provides paths of user-invisible standard directories, following
